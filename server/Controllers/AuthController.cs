@@ -1,7 +1,7 @@
-using Bridge.Server;
+using Bridge.Server.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
-namespace MyApp.Namespace
+namespace Bridge.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
@@ -10,12 +10,18 @@ namespace MyApp.Namespace
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto request)
         {
-            var result = await authService.RegisterAsync(request);
-
-            if (result == null)
-                return BadRequest(new { Message = "Email is already in use." });
-
-            return Ok(result);
+            try
+            {
+                var result = await authService.RegisterAsync(request);
+                return Ok(
+                    new ApiResponse<AuthResponseDto>(true, "User registered successfully", result)
+                );
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Returns 409 Conflict if user exists
+                return Conflict(new ApiResponse<object>(false, ex.Message));
+            }
         }
 
         [HttpPost("login")]
@@ -23,10 +29,11 @@ namespace MyApp.Namespace
         {
             var result = await authService.LoginAsync(request);
 
+            // Keep it generic to prevent account enumeration
             if (result == null)
-                return Unauthorized(new { Message = "Invalid email or password." });
+                return Unauthorized(new ApiResponse<object>(false, "Invalid email or password."));
 
-            return Ok(result);
+            return Ok(new ApiResponse<AuthResponseDto>(true, "Login successful", result));
         }
     }
 }
